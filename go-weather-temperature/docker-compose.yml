@@ -1,0 +1,54 @@
+version: "3.5"
+services:
+  app:
+    image: vhoen/go-base:latest
+    container_name: go-weather-temperature
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.go-weather-temperature.entrypoints=web"
+      - "traefik.http.routers.go-weather-temperature.rule=Host(`weather.localhost`) && PathPrefix(`/go-weather-temperature`)" 
+      - "traefik.http.routers.go-weather-temperature.service=go-weather-temperature" 
+      - "traefik.http.services.go-weather-temperature.loadBalancer.server.port=8000"
+      - "traefik.port=8000"
+    volumes:
+      - .:/go/src/go-onsite-app
+    networks:
+      - weather
+  logs:
+    image: amir20/dozzle:latest
+    container_name: logs
+    environment:
+      - DOZZLE_TAILSIZE=100
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "8080:8080"
+  traefik:
+    image: traefik:v2.0
+    container_name: traefik
+    hostname: traefik
+    ports:
+      - "8000:8000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command:
+      - "--entryPoints.web.address=:8000"
+      - "--api.dashboard=true"
+      - "--providers.docker.exposedbydefault=false"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik-api.rule=Host(`localhost`)"
+      - "traefik.http.routers.traefik-api.service=api@internal"
+    restart: "unless-stopped"
+    networks:
+      - weather
+
+networks:
+  weather:
+    name: weather
+    ipam:
+      driver: default
+      config:
+        - subnet: "192.168.20.0/24"
+          gateway: "192.168.20.1"
+
